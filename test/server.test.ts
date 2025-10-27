@@ -1,13 +1,20 @@
-const tap = require('tap');
-const supertest = require('supertest');
-const app = require('../app');
+import tap from 'tap';
+import supertest from 'supertest';
+import app from '../app';
 const server = supertest(app);
 
-const mockUser = {
+interface IMockUser {
+    name: string;
+    email: string;
+    password: string;
+    preferences: string[];
+}
+
+const mockUser: IMockUser = {
     name: 'Clark Kent',
     email: 'clark@superman.com',
     password: 'Krypt()n8',
-    preferences:['movies', 'comics']
+    preferences: ['movies', 'comics']
 };
 
 let token = '';
@@ -99,3 +106,4 @@ tap.test('GET /news without token', async (t) => {
 tap.teardown(() => {
     process.exit(0);
 });
+
