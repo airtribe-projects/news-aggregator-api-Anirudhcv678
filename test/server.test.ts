@@ -1,6 +1,6 @@
 import tap from 'tap';
 import supertest from 'supertest';
-import app from '../app';
+import app from '../src/app';
 const server = supertest(app);
 
 interface IMockUser {
