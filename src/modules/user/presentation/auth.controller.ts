@@ -3,64 +3,169 @@ import {UserRepository} from '../infrastructure/repositories/user.repository';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import {ApiResponse} from '../../../utils/api-response';
+import {
+    validateRequiredFields,
+    validateFieldTypes,
+    validateEmail,
+    validatePassword,
+    validateName
+} from '../../../utils/validators';
 
 export class AuthController {
     private static userRepository = new UserRepository();
 
     static async register(req: Request, res: Response) {
-        const {name, email, password} = req.body;
         try {
+            const {name, email, password} = req.body;
+
+            // Validate request body structure
+            if (!req.body || typeof req.body !== 'object') {
+                return ApiResponse.error(res, 400, 'Request body must be a valid JSON object');
+            }
+
             // Validate required fields
-            if (!name || !email || !password) {
-                return ApiResponse.error(res, 400, 'Name, email, and password are required');
+            const requiredFieldsValidation = validateRequiredFields(req.body, ['name', 'email', 'password']);
+            if (!requiredFieldsValidation.isValid) {
+                return ApiResponse.error(res, 400, requiredFieldsValidation.error || 'Validation failed');
             }
-            
-            const existingUser = await AuthController.userRepository.findByEmail(email);
+
+            // Validate field types
+            const fieldTypesValidation = validateFieldTypes(req.body, {
+                name: 'string',
+                email: 'string',
+                password: 'string'
+            });
+            if (!fieldTypesValidation.isValid) {
+                return ApiResponse.error(res, 400, fieldTypesValidation.error || 'Invalid field types');
+            }
+
+            // Validate name
+            const nameValidation = validateName(name);
+            if (!nameValidation.isValid) {
+                return ApiResponse.error(res, 400, nameValidation.error || 'Invalid name');
+            }
+
+            // Validate email format
+            const emailValidation = validateEmail(email);
+            if (!emailValidation.isValid) {
+                return ApiResponse.error(res, 400, emailValidation.error || 'Invalid email');
+            }
+
+            // Validate password length
+            const passwordValidation = validatePassword(password, 8);
+            if (!passwordValidation.isValid) {
+                return ApiResponse.error(res, 400, passwordValidation.error || 'Invalid password');
+            }
+
+            // Check if user already exists
+            const existingUser = await AuthController.userRepository.findByEmail(email.trim().toLowerCase());
             if (existingUser) {
-                return ApiResponse.error(res, 400, 'User already exists');
+                return ApiResponse.error(res, 409, 'User with this email already exists');
             }
+
+            // Hash password and create user
             const hashedPassword = await bcrypt.hash(password, 10);
-            const newUser = await AuthController.userRepository.create({name, email, password: hashedPassword});
-            if(!newUser) {
-                return ApiResponse.error(res, 400, 'Failed to register user');
+            const newUser = await AuthController.userRepository.create({
+                name: name.trim(),
+                email: email.trim().toLowerCase(),
+                password: hashedPassword
+            });
+
+            if (!newUser) {
+                return ApiResponse.error(res, 500, 'Failed to register user');
             }
+
+            // Generate JWT token
             const jwtSecret = process.env.JWT_SECRET || "your-secret-key-change-in-production";
             const token = jwt.sign(
-                {id: newUser._id.toString(), email: newUser.email, name: newUser.name}, 
-                jwtSecret, 
+                {id: newUser._id.toString(), email: newUser.email, name: newUser.name},
+                jwtSecret,
                 {expiresIn: '1h'}
             );
-            res.status(200).json({
+
+            res.status(201).json({
+                success: true,
+                message: 'User registered successfully',
                 token,
-                user: {id: newUser._id.toString(), name: newUser.name, email: newUser.email}
+                user: {
+                    id: newUser._id.toString(),
+                    name: newUser.name,
+                    email: newUser.email
+                }
             });
         } catch (error) {
+            console.error('Registration error:', error);
             ApiResponse.error(res, 500, 'Internal server error', error as Error);
         }
     }
 
     static async login(req: Request, res: Response) {
-        const {email, password} = req.body;
         try {
-            const user = await AuthController.userRepository.findByEmail(email);
-            if (!user) {
-                return ApiResponse.error(res, 401, 'Invalid credentials');
+            const {email, password} = req.body;
+
+            // Validate request body structure
+            if (!req.body || typeof req.body !== 'object') {
+                return ApiResponse.error(res, 400, 'Request body must be a valid JSON object');
             }
+
+            // Validate required fields
+            const requiredFieldsValidation = validateRequiredFields(req.body, ['email', 'password']);
+            if (!requiredFieldsValidation.isValid) {
+                return ApiResponse.error(res, 400, requiredFieldsValidation.error || 'Email and password are required');
+            }
+
+            // Validate field types
+            const fieldTypesValidation = validateFieldTypes(req.body, {
+                email: 'string',
+                password: 'string'
+            });
+            if (!fieldTypesValidation.isValid) {
+                return ApiResponse.error(res, 400, fieldTypesValidation.error || 'Invalid field types');
+            }
+
+            // Validate email format
+            const emailValidation = validateEmail(email);
+            if (!emailValidation.isValid) {
+                return ApiResponse.error(res, 400, emailValidation.error || 'Invalid email format');
+            }
+
+            // Validate password is not empty
+            if (!password || typeof password !== 'string' || password.length === 0) {
+                return ApiResponse.error(res, 400, 'Password is required');
+            }
+
+            // Find user by email
+            const user = await AuthController.userRepository.findByEmail(email.trim().toLowerCase());
+            if (!user) {
+                return ApiResponse.error(res, 401, 'Invalid email or password');
+            }
+
+            // Verify password
             const isValidPassword = await bcrypt.compare(password, user.password);
             if (!isValidPassword) {
-                return ApiResponse.error(res, 401, 'Invalid credentials');
+                return ApiResponse.error(res, 401, 'Invalid email or password');
             }
+
+            // Generate JWT token
             const jwtSecret = process.env.JWT_SECRET || "your-secret-key-change-in-production";
             const token = jwt.sign(
-                {id: user._id.toString(), email: user.email, name: user.name}, 
-                jwtSecret, 
+                {id: user._id.toString(), email: user.email, name: user.name},
+                jwtSecret,
                 {expiresIn: '1h'}
             );
+
             res.status(200).json({
+                success: true,
+                message: 'Login successful',
                 token,
-                user: {id: user._id.toString(), name: user.name, email: user.email}
+                user: {
+                    id: user._id.toString(),
+                    name: user.name,
+                    email: user.email
+                }
             });
         } catch (error) {
+            console.error('Login error:', error);
             ApiResponse.error(res, 500, 'Internal server error', error as Error);
         }
     }
