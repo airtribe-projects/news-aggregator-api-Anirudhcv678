@@ -1,12 +1,23 @@
 import express from 'express';
 import type { Request, Response, NextFunction, Express } from 'express';
 import mongoose from 'mongoose';
+import routes from './routes.ts/index';
 
 const app: Express = express();
 const port: number = 3000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.use('/', routes);
+
+// Error handling middleware - must be after routes
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+    console.error('Error:', err);
+    if (!res.headersSent) {
+        res.status(500).json({ error: 'Internal server error', message: err.message });
+    }
+});
 
 mongoose.connect('mongodb://localhost:27017/news-aggregator')
     .then(() => {

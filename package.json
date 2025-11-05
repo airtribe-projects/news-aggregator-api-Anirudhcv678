@@ -6,16 +6,17 @@
     "scripts": {
         "build": "tsc",
         "start": "node dist/app.js",
-        "dev": "ts-node-dev --respawn --transpile-only app.ts",
+        "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
         "pretest": "npm run build",
-        "test": "tap test/*.ts --disable-coverage",
-        "test:watch": "tap test/*.ts --watch --disable-coverage"
+        "test": "tap src/test/*.ts --disable-coverage",
+        "test:watch": "tap src/test/*.ts --watch --disable-coverage"
     },
     "author": "Airtribe",
     "license": "ISC",
     "devDependencies": {
         "@types/bcrypt": "^6.0.0",
         "@types/express": "^5.0.4",
+        "@types/jsonwebtoken": "^9.0.10",
         "@types/node": "^24.9.1",
         "@types/supertest": "^6.0.3",
         "@types/tap": "^15.0.12",
@@ -27,6 +28,7 @@
     "dependencies": {
         "bcrypt": "^6.0.0",
         "express": "^4.18.2",
+        "jsonwebtoken": "^9.0.2",
         "mongoose": "^8.19.2"
     },
     "engines": {
