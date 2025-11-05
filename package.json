@@ -8,8 +8,8 @@
         "start": "node dist/app.js",
         "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
         "pretest": "npm run build",
-        "test": "tap src/test/*.ts --disable-coverage",
-        "test:watch": "tap src/test/*.ts --watch --disable-coverage"
+        "test": "NODE_ENV=test tap src/test/*.ts --disable-coverage",
+        "test:watch": "NODE_ENV=test tap src/test/*.ts --watch --disable-coverage"
     },
     "author": "Airtribe",
     "license": "ISC",
