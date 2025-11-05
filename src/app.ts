@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import type { Request, Response, NextFunction, Express } from 'express';
 import mongoose from 'mongoose';
