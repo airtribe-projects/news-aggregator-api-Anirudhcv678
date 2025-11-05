@@ -1,6 +1,8 @@
 import tap from 'tap';
 import supertest from 'supertest';
 import app from '../app';
+import User from '../modules/user/infrastructure/models/user.model';
+
 const server = supertest(app);
 
 interface IMockUser {
@@ -22,8 +24,15 @@ let token = '';
 // Auth tests
 
 tap.test('POST /users/signup', async (t) => { 
+    // Clean up existing user if any (for test repeatability)
+    try {
+        await User.deleteOne({ email: mockUser.email });
+    } catch (e) {
+        // Ignore cleanup errors
+    }
+    
     const response = await server.post('/users/signup').send(mockUser);
-    t.equal(response.status, 200);
+    t.equal(response.status, 201); // API returns 201 for successful registration
     t.end();
 });
 
@@ -61,8 +70,9 @@ tap.test('POST /users/login with wrong password', async (t) => {
 tap.test('GET /users/preferences', async (t) => {
     const response = await server.get('/users/preferences').set('Authorization', `Bearer ${token}`);
     t.equal(response.status, 200);
-    t.hasOwnProp(response.body, 'preferences');
-    t.same(response.body.preferences, mockUser.preferences);
+    t.hasOwnProp(response.body, 'data');
+    t.hasOwnProp(response.body.data, 'preferences');
+    t.same(response.body.data.preferences, mockUser.preferences);
     t.end();
 });
 
@@ -82,7 +92,7 @@ tap.test('PUT /users/preferences', async (t) => {
 tap.test('Check PUT /users/preferences', async (t) => {
     const response = await server.get('/users/preferences').set('Authorization', `Bearer ${token}`);
     t.equal(response.status, 200);
-    t.same(response.body.preferences, ['movies', 'comics', 'games']);
+    t.same(response.body.data.preferences, ['movies', 'comics', 'games']);
     t.end();
 });
 
@@ -91,7 +101,8 @@ tap.test('Check PUT /users/preferences', async (t) => {
 tap.test('GET /news', async (t) => {
     const response = await server.get('/news').set('Authorization', `Bearer ${token}`);
     t.equal(response.status, 200);
-    t.hasOwnProp(response.body, 'news');
+    t.hasOwnProp(response.body, 'data');
+    t.hasOwnProp(response.body.data, 'news');
     t.end();
 });
 

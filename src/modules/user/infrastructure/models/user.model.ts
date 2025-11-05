@@ -9,6 +9,8 @@ export interface IUser extends Document{
     updatedAt: Date;
     preferences: string[];
     role: 'admin' | 'user';
+    readArticles: string[]; // Array of article URLs
+    favoriteArticles: string[]; // Array of article URLs
 }
 
 const userSchema = new Schema<IUser>({
@@ -17,7 +19,8 @@ const userSchema = new Schema<IUser>({
     password: {type: String, required:true},
     preferences: {type: [String], default:[]},
     role: {type: String, enum : ['admin','user'], default:'user'},
-
+    readArticles: {type: [String], default:[]},
+    favoriteArticles: {type: [String], default:[]},
 },{timestamps:true});
 
 const User = model<IUser>('User',userSchema);

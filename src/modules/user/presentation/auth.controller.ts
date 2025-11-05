@@ -8,7 +8,8 @@ import {
     validateFieldTypes,
     validateEmail,
     validatePassword,
-    validateName
+    validateName,
+    validatePreferences
 } from '../../../utils/validators';
 
 export class AuthController {
@@ -16,7 +17,7 @@ export class AuthController {
 
     static async register(req: Request, res: Response) {
         try {
-            const {name, email, password} = req.body;
+            const {name, email, password, preferences} = req.body;
 
             // Validate request body structure
             if (!req.body || typeof req.body !== 'object') {
@@ -37,6 +38,17 @@ export class AuthController {
             });
             if (!fieldTypesValidation.isValid) {
                 return ApiResponse.error(res, 400, fieldTypesValidation.error || 'Invalid field types');
+            }
+
+            // Validate preferences if provided
+            if (preferences !== undefined) {
+                if (!Array.isArray(preferences)) {
+                    return ApiResponse.error(res, 400, 'Preferences must be an array');
+                }
+                const preferencesValidation = validatePreferences(preferences);
+                if (!preferencesValidation.isValid) {
+                    return ApiResponse.error(res, 400, preferencesValidation.error || 'Invalid preferences format');
+                }
             }
 
             // Validate name
@@ -63,13 +75,20 @@ export class AuthController {
                 return ApiResponse.error(res, 409, 'User with this email already exists');
             }
 
-            // Hash password and create user
-            const hashedPassword = await bcrypt.hash(password, 10);
-            const newUser = await AuthController.userRepository.create({
+            // Prepare user data
+            const userData: any = {
                 name: name.trim(),
                 email: email.trim().toLowerCase(),
-                password: hashedPassword
-            });
+                password: await bcrypt.hash(password, 10)
+            };
+
+            // Add preferences if provided
+            if (preferences && Array.isArray(preferences)) {
+                userData.preferences = [...new Set(preferences.map((p: string) => p.trim()))];
+            }
+
+            // Create user
+            const newUser = await AuthController.userRepository.create(userData);
 
             if (!newUser) {
                 return ApiResponse.error(res, 500, 'Failed to register user');

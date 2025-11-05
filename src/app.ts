@@ -3,6 +3,8 @@ import express from 'express';
 import type { Request, Response, NextFunction, Express } from 'express';
 import mongoose from 'mongoose';
 import routes from './routes.ts/index';
+import { NewsApiService } from './modules/news/infrastructure/services/news-api.service';
+import { CacheUpdateService } from './modules/news/infrastructure/services/cache-update.service';
 
 const app: Express = express();
 const port: number = 3000;
@@ -20,11 +22,21 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     }
 });
 
+// Initialize cache update service
+let cacheUpdateService: CacheUpdateService | null = null;
+
 // Only start server if not in test environment
 if (process.env.NODE_ENV !== 'test') {
     mongoose.connect('mongodb://localhost:27017/news-aggregator')
         .then(() => {
             console.log('Connected to MongoDB');
+            
+            // Initialize and start cache update service
+            const newsApiService = new NewsApiService();
+            const updateIntervalMinutes = parseInt(process.env.CACHE_UPDATE_INTERVAL_MINUTES || '15', 10);
+            cacheUpdateService = new CacheUpdateService(newsApiService, updateIntervalMinutes);
+            cacheUpdateService.start();
+            
             app.listen(port, (err?: Error): void => {
                 if (err) {
                     return console.log('Something bad happened', err);
@@ -46,6 +58,29 @@ if (process.env.NODE_ENV !== 'test') {
             console.error('Failed to connect to MongoDB', err);
         });
 }
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down gracefully...');
+    if (cacheUpdateService) {
+        cacheUpdateService.stop();
+    }
+    mongoose.connection.close().then(() => {
+        console.log('MongoDB connection closed');
+        process.exit(0);
+    });
+});
+
+process.on('SIGINT', () => {
+    console.log('SIGINT received, shutting down gracefully...');
+    if (cacheUpdateService) {
+        cacheUpdateService.stop();
+    }
+    mongoose.connection.close().then(() => {
+        console.log('MongoDB connection closed');
+        process.exit(0);
+    });
+});
 
 export default app;
 

@@ -1,3 +1,5 @@
+import { CacheService } from './cache.service';
+
 export interface NewsArticle {
     title: string;
     description: string;
@@ -86,12 +88,14 @@ export class NewsApiService {
     private newsCatcherKey: string;
     private gNewsKey: string;
     private newsApiAiKey: string;
+    private cacheService: CacheService;
 
     constructor() {
         this.newsApiKey = process.env.NEWS_API_KEY || '72bd1605f7da44e59a7799c782eb6306';
         this.newsCatcherKey = process.env.NEWSCATCHER_API_KEY || '';
         this.gNewsKey = process.env.GNEWS_API_KEY || '96f1c163c04d632ae31b90c51382e4f1';
         this.newsApiAiKey = process.env.NEWSAPI_AI_KEY || 'c9f3bda4-abf6-44ef-900f-d9cdcc7f75e1';
+        this.cacheService = new CacheService();
     }
 
     // NewsAPI.org (newsapi.org)
@@ -257,6 +261,10 @@ export class NewsApiService {
                 throw new Error(`NewsAPI.ai error: ${(data as any).message || 'Unknown error'}`);
             }
 
+            if (!data.articles || !Array.isArray(data.articles)) {
+                return [];
+            }
+
             return data.articles.map(article => ({
                 title: article.title,
                 description: article.description || '',
@@ -293,6 +301,14 @@ export class NewsApiService {
     }
 
     async getNewsByPreferences(preferences: string[]): Promise<NewsArticle[]> {
+        // Check cache first
+        const cachedArticles = await this.cacheService.getCachedArticles(preferences);
+        if (cachedArticles) {
+            console.log('Returning cached articles');
+            return cachedArticles;
+        }
+
+        console.log('Cache miss - fetching from APIs');
         const allArticles: NewsArticle[] = [];
         const seenUrls = new Set<string>();
 
@@ -317,7 +333,10 @@ export class NewsApiService {
                 }
             });
 
-            return this.sortAndLimitArticles(allArticles);
+            const sortedArticles = this.sortAndLimitArticles(allArticles);
+            // Cache the results
+            await this.cacheService.setCachedArticles(preferences, sortedArticles);
+            return sortedArticles;
         }
 
         // Fetch news for each preference from all APIs
@@ -346,7 +365,40 @@ export class NewsApiService {
             });
         }
 
-        return this.sortAndLimitArticles(allArticles);
+        const sortedArticles = this.sortAndLimitArticles(allArticles);
+        // Cache the results
+        await this.cacheService.setCachedArticles(preferences, sortedArticles);
+        return sortedArticles;
+    }
+
+    /**
+     * Search articles by keyword (searches cached articles)
+     */
+    async searchArticles(keyword: string): Promise<NewsArticle[]> {
+        const allCachedArticles = await this.cacheService.getAllCachedArticles();
+        
+        if (allCachedArticles.length === 0) {
+            // If cache is empty, fetch general news first
+            await this.getNewsByPreferences([]);
+            return this.searchArticles(keyword); // Retry after populating cache
+        }
+
+        const lowerKeyword = keyword.toLowerCase();
+        const matchedArticles = allCachedArticles.filter(article => {
+            const titleMatch = article.title.toLowerCase().includes(lowerKeyword);
+            const descriptionMatch = article.description.toLowerCase().includes(lowerKeyword);
+            const sourceMatch = article.source.name.toLowerCase().includes(lowerKeyword);
+            return titleMatch || descriptionMatch || sourceMatch;
+        });
+
+        return this.sortAndLimitArticles(matchedArticles);
+    }
+
+    /**
+     * Get cache service instance for cache management
+     */
+    getCacheService(): CacheService {
+        return this.cacheService;
     }
 
     private sortAndLimitArticles(articles: NewsArticle[]): NewsArticle[] {
