@@ -1,106 +1,63 @@
 # News Aggregator API
 
-A TypeScript-based RESTful API for aggregating news based on user preferences.
+A REST API that aggregates news from multiple sources based on user preferences. Built with TypeScript, Express, and MongoDB.
 
-## Features
+## Quick Start
 
-- User authentication (signup and login)
-- User preferences management
-- News aggregation based on preferences
-- JWT-based authentication
-- MongoDB for data persistence
-
-## Tech Stack
-
-- **TypeScript** - Type-safe JavaScript
-- **Express** - Web framework
-- **MongoDB** - Database
-- **Mongoose** - ODM for MongoDB
-- **JWT** - Authentication tokens
-- **bcrypt** - Password hashing
-
-## Prerequisites
-
-- Node.js >= 18.0.0
-- MongoDB installed and running locally on port 27017
-
-## Installation
-
-1. Clone the repository
-2. Install dependencies:
 ```bash
 npm install
+npm run dev    # Development mode
+npm start      # Production mode
 ```
 
-## Development
+**Requirements:** Node.js >= 18, MongoDB running on port 27017
 
-Run the development server with hot-reload:
-```bash
-npm run dev
+## Folder Structure
+
 ```
-
-## Build
-
-Compile TypeScript to JavaScript:
-```bash
-npm run build
-```
-
-The compiled JavaScript files will be in the `dist` directory.
-
-## Run
-
-Run the production server:
-```bash
-npm start
-```
-
-## Testing
-
-Run tests:
-```bash
-npm test
-```
-
-Run tests in watch mode:
-```bash
-npm run test:watch
+src/
+├── app.ts                          # Main application entry
+├── modules/
+│   ├── user/                       # User module
+│   │   ├── presentation/          # Controllers & routes
+│   │   └── infrastructure/        # Models & repositories
+│   └── news/                      # News module
+│       ├── presentation/          # Controllers & routes
+│       └── infrastructure/        # Services (API clients, cache)
+├── middleware/                     # Authentication middleware
+├── utils/                         # Utilities (validators, responses)
+└── test/                          # Test files
 ```
 
 ## API Endpoints
 
 ### Authentication
-
-- `POST /users/signup` - Create a new user account
-- `POST /users/login` - Login with email and password
+- `POST /users/signup` - Create account (optional: include preferences)
+- `POST /users/login` - Login (returns JWT token)
 
 ### User Preferences
-
-- `GET /users/preferences` - Get user preferences (requires authentication)
-- `PUT /users/preferences` - Update user preferences (requires authentication)
+- `GET /users/preferences` - Get user preferences (auth required)
+- `PUT /users/preferences` - Update preferences (auth required)
 
 ### News
+- `GET /news` - Get personalized news (auth required)
+- `GET /news/search/:keyword` - Search articles (auth required)
+- `POST /news/:id/read` - Mark article as read (auth required)
+- `POST /news/:id/favorite` - Mark article as favorite (auth required)
+- `GET /news/read` - Get all read articles (auth required)
+- `GET /news/favorites` - Get all favorite articles (auth required)
 
-- `GET /news` - Get news based on user preferences (requires authentication)
+**Note:** Use `Authorization: Bearer <token>` header for protected endpoints.
 
-## Project Structure
+## Features
 
+- **Caching:** 15-minute cache for news articles
+- **Background Updates:** Automatic cache refresh every 15 minutes
+- **Multiple Sources:** Aggregates from 4 news APIs (NewsAPI.org, NewsCatcher, GNews, NewsAPI.ai)
+- **User Management:** Read/favorite tracking, preference-based filtering
+
+## Testing
+
+```bash
+npm test
 ```
-├── app.ts                 # Main application file
-├── dist/                  # Compiled JavaScript files
-├── types/                 # TypeScript type definitions
-├── models/                # Mongoose models
-├── controllers/           # Route controllers
-├── services/              # Business logic
-├── router/                # Express routes
-└── test/                  # Test files
-```
-
-## License
-
-ISC
-
-## Author
-
-Airtribe
-
